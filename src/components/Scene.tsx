@@ -13,6 +13,8 @@ export interface SceneHandle {
   setCutawayEnabled: (enabled: boolean) => void;
   setCutawayPosition: (value: number) => void;
   setCutawayAxis: (axis: "x" | "y" | "z") => void;
+  setExplodeEnabled: (enabled: boolean) => void;
+  setExplodeIntensity: (value: number) => void;
 }
 
 const Scene = forwardRef<SceneHandle>(function Scene(_, ref) {
@@ -26,6 +28,12 @@ const Scene = forwardRef<SceneHandle>(function Scene(_, ref) {
   const cutawayAxisRef = useRef<"x" | "y" | "z">("x");
   const cutawayPositionRef = useRef(100); // slider value 0-100
   const modelBoundsRef = useRef({ min: new THREE.Vector3(), max: new THREE.Vector3() });
+
+  // Explode state
+  const explodeDataRef = useRef<{ object: THREE.Object3D; originalPos: THREE.Vector3; direction: THREE.Vector3 }[]>([]);
+  const explodeEnabledRef = useRef(false);
+  const explodeIntensityRef = useRef(0);
+  const explodeRadiusRef = useRef(1);
 
   const playActuatorCycle = useCallback(() => {
     const action = actuatorActionRef.current;
@@ -80,12 +88,56 @@ const Scene = forwardRef<SceneHandle>(function Scene(_, ref) {
     }
   }, [updateClippingPlaneNormal, applyPlaneConstant]);
 
+  const applyExplodePositions = useCallback((intensity: number) => {
+    const data = explodeDataRef.current;
+    const radius = explodeRadiusRef.current;
+    data.forEach(({ object, originalPos, direction }) => {
+      const offset = direction.clone().multiplyScalar((intensity / 100) * radius);
+      const target = originalPos.clone().add(offset);
+      gsap.to(object.position, {
+        x: target.x,
+        y: target.y,
+        z: target.z,
+        duration: 0.5,
+        ease: "power2.out",
+      });
+    });
+  }, []);
+
+  const setExplodeEnabled = useCallback((enabled: boolean) => {
+    explodeEnabledRef.current = enabled;
+    if (enabled) {
+      applyExplodePositions(explodeIntensityRef.current);
+    } else {
+      // Animate all children back to original positions
+      explodeDataRef.current.forEach(({ object, originalPos }) => {
+        gsap.to(object.position, {
+          x: originalPos.x,
+          y: originalPos.y,
+          z: originalPos.z,
+          duration: 0.5,
+          ease: "power2.out",
+        });
+      });
+      explodeIntensityRef.current = 0;
+    }
+  }, [applyExplodePositions]);
+
+  const setExplodeIntensity = useCallback((value: number) => {
+    explodeIntensityRef.current = value;
+    if (explodeEnabledRef.current) {
+      applyExplodePositions(value);
+    }
+  }, [applyExplodePositions]);
+
   useImperativeHandle(ref, () => ({
     playActuatorCycle,
     setCutawayEnabled,
     setCutawayPosition,
     setCutawayAxis,
-  }), [playActuatorCycle, setCutawayEnabled, setCutawayPosition, setCutawayAxis]);
+    setExplodeEnabled,
+    setExplodeIntensity,
+  }), [playActuatorCycle, setCutawayEnabled, setCutawayPosition, setCutawayAxis, setExplodeEnabled, setExplodeIntensity]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -156,6 +208,45 @@ const Scene = forwardRef<SceneHandle>(function Scene(_, ref) {
         // Store scaled bounds for cutaway slider mapping
         modelBoundsRef.current.min.copy(worldBox.min);
         modelBoundsRef.current.max.copy(worldBox.max);
+
+        // Compute explode data — drill into hierarchy until we find 2+ children
+        const bboxSize = worldBox.getSize(new THREE.Vector3());
+        explodeRadiusRef.current = bboxSize.length() * 0.5;
+
+        let explodeParent: THREE.Object3D = model;
+        while (explodeParent.children.length === 1 && explodeParent.children[0].children.length > 0) {
+          explodeParent = explodeParent.children[0];
+        }
+        const parts = explodeParent.children;
+
+        // Compute the centroid of all parts (in parent-local space) so directions radiate from center
+        const centroid = new THREE.Vector3();
+        const partCenters: THREE.Vector3[] = [];
+        for (const part of parts) {
+          const partBox = new THREE.Box3().setFromObject(part);
+          const c = partBox.getCenter(new THREE.Vector3());
+          // Convert world-space center to the explodeParent's local space
+          explodeParent.worldToLocal(c);
+          partCenters.push(c);
+          centroid.add(c);
+        }
+        if (parts.length > 0) centroid.divideScalar(parts.length);
+
+        const explodeData: typeof explodeDataRef.current = [];
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i];
+          const dir = partCenters[i].clone().sub(centroid);
+          if (dir.lengthSq() < 0.0001) {
+            dir.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+          }
+          dir.normalize();
+          explodeData.push({
+            object: part,
+            originalPos: part.position.clone(),
+            direction: dir,
+          });
+        }
+        explodeDataRef.current = explodeData;
 
         // Traverse all meshes: attach clipping plane and set DoubleSide
         // Plane is attached NOW (before first render) so the shader compiles with clipping support.

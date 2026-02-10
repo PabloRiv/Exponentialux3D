@@ -20,6 +20,8 @@ export default function Home() {
         onCutawayToggle={(enabled) => sceneRef.current?.setCutawayEnabled(enabled)}
         onCutawayPosition={(value) => sceneRef.current?.setCutawayPosition(value)}
         onCutawayAxis={(axis) => sceneRef.current?.setCutawayAxis(axis)}
+        onExplodeToggle={(enabled) => sceneRef.current?.setExplodeEnabled(enabled)}
+        onExplodeIntensity={(value) => sceneRef.current?.setExplodeIntensity(value)}
       />
     </main>
   );

@@ -11,6 +11,8 @@ interface HeroOverlayProps {
   onCutawayToggle?: (enabled: boolean) => void;
   onCutawayPosition?: (value: number) => void;
   onCutawayAxis?: (axis: "x" | "y" | "z") => void;
+  onExplodeToggle?: (enabled: boolean) => void;
+  onExplodeIntensity?: (value: number) => void;
 }
 
 export default function HeroOverlay({
@@ -18,11 +20,15 @@ export default function HeroOverlay({
   onCutawayToggle,
   onCutawayPosition,
   onCutawayAxis,
+  onExplodeToggle,
+  onExplodeIntensity,
 }: HeroOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [cutawayActive, setCutawayActive] = useState(false);
   const [cutawayAxisState, setCutawayAxisState] = useState<"x" | "y" | "z">("x");
   const cutawayControlsRef = useRef<HTMLDivElement>(null);
+  const [explodeActive, setExplodeActive] = useState(false);
+  const explodeControlsRef = useRef<HTMLDivElement>(null);
 
   // Animate cutaway controls in/out
   useEffect(() => {
@@ -34,6 +40,17 @@ export default function HeroOverlay({
       gsap.to(el, { height: 0, opacity: 0, duration: 0.3, ease: "power2.in" });
     }
   }, [cutawayActive]);
+
+  // Animate explode controls in/out
+  useEffect(() => {
+    const el = explodeControlsRef.current;
+    if (!el) return;
+    if (explodeActive) {
+      gsap.to(el, { height: "auto", opacity: 1, duration: 0.4, ease: "power2.out" });
+    } else {
+      gsap.to(el, { height: 0, opacity: 0, duration: 0.3, ease: "power2.in" });
+    }
+  }, [explodeActive]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -319,6 +336,24 @@ export default function HeroOverlay({
               </svg>
               <span>Cutaway</span>
             </button>
+
+            <button
+              onClick={() => {
+                const next = !explodeActive;
+                setExplodeActive(next);
+                onExplodeToggle?.(next);
+              }}
+              className={`group relative inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-full px-8 font-medium text-white transition-all ${
+                explodeActive
+                  ? "bg-gradient-to-r from-orange-500 to-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.4)]"
+                  : "bg-gradient-to-r from-orange-500 to-amber-500 hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]"
+              }`}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span>Explode</span>
+            </button>
           </div>
 
           {/* Cutaway controls — slider + axis buttons */}
@@ -361,6 +396,27 @@ export default function HeroOverlay({
                   {axis}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Explode controls — intensity slider */}
+          <div
+            ref={explodeControlsRef}
+            className="mt-4 flex flex-col items-center gap-3 overflow-hidden"
+            style={{ height: 0, opacity: 0 }}
+          >
+            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-2 backdrop-blur-sm">
+              <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+                Intensity
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                defaultValue={0}
+                className="h-1.5 w-40 cursor-pointer appearance-none rounded-full bg-white/10 accent-amber-500 sm:w-52"
+                onChange={(e) => onExplodeIntensity?.(Number(e.target.value))}
+              />
             </div>
           </div>
         </div>
