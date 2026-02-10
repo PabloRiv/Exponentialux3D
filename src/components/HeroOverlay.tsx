@@ -1,13 +1,39 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-export default function HeroOverlay() {
+interface HeroOverlayProps {
+  onActuatorCycle?: () => void;
+  onCutawayToggle?: (enabled: boolean) => void;
+  onCutawayPosition?: (value: number) => void;
+  onCutawayAxis?: (axis: "x" | "y" | "z") => void;
+}
+
+export default function HeroOverlay({
+  onActuatorCycle,
+  onCutawayToggle,
+  onCutawayPosition,
+  onCutawayAxis,
+}: HeroOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [cutawayActive, setCutawayActive] = useState(false);
+  const [cutawayAxisState, setCutawayAxisState] = useState<"x" | "y" | "z">("x");
+  const cutawayControlsRef = useRef<HTMLDivElement>(null);
+
+  // Animate cutaway controls in/out
+  useEffect(() => {
+    const el = cutawayControlsRef.current;
+    if (!el) return;
+    if (cutawayActive) {
+      gsap.to(el, { height: "auto", opacity: 1, duration: 0.4, ease: "power2.out" });
+    } else {
+      gsap.to(el, { height: 0, opacity: 0, duration: 0.3, ease: "power2.in" });
+    }
+  }, [cutawayActive]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -262,6 +288,80 @@ export default function HeroOverlay() {
             <button className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 px-8 font-medium text-zinc-300 backdrop-blur-sm transition-all hover:border-white/30 hover:text-white">
               Learn More
             </button>
+          </div>
+
+          {/* Actuator & Cutaway buttons — separate row, always visible */}
+          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row">
+            <button
+              onClick={onActuatorCycle}
+              className="group relative inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-cyan-600 to-indigo-600 px-8 font-medium text-white transition-all hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
+            >
+              <svg className="h-4 w-4 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Actuator Cycle</span>
+            </button>
+
+            <button
+              onClick={() => {
+                const next = !cutawayActive;
+                setCutawayActive(next);
+                onCutawayToggle?.(next);
+              }}
+              className={`group relative inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-full px-8 font-medium text-white transition-all ${
+                cutawayActive
+                  ? "bg-gradient-to-r from-pink-600 to-purple-600 shadow-[0_0_30px_rgba(236,72,153,0.4)]"
+                  : "bg-gradient-to-r from-pink-600 to-purple-600 hover:shadow-[0_0_30px_rgba(236,72,153,0.4)]"
+              }`}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Cutaway</span>
+            </button>
+          </div>
+
+          {/* Cutaway controls — slider + axis buttons */}
+          <div
+            ref={cutawayControlsRef}
+            className="mt-4 flex flex-col items-center gap-3 overflow-hidden"
+            style={{ height: 0, opacity: 0 }}
+          >
+            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-2 backdrop-blur-sm">
+              <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+                Position
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                defaultValue={100}
+                className="h-1.5 w-40 cursor-pointer appearance-none rounded-full bg-white/10 accent-pink-500 sm:w-52"
+                onChange={(e) => onCutawayPosition?.(Number(e.target.value))}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="mr-1 text-xs font-medium uppercase tracking-wider text-zinc-400">
+                Axis
+              </span>
+              {(["x", "y", "z"] as const).map((axis) => (
+                <button
+                  key={axis}
+                  onClick={() => {
+                    setCutawayAxisState(axis);
+                    onCutawayAxis?.(axis);
+                  }}
+                  className={`h-8 w-8 rounded-full text-xs font-bold uppercase transition-all ${
+                    cutawayAxisState === axis
+                      ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]"
+                      : "border border-white/15 text-zinc-400 hover:border-white/30 hover:text-white"
+                  }`}
+                >
+                  {axis}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
