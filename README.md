@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ExponentialUX 3D
+
+Interactive 3D landing page built with Next.js, Three.js, and GSAP. Features a GLB model viewer with scroll-driven animations, actuator cycle playback, and a cutaway clipping plane for slicing through the model along any axis.
+
+## Features
+
+- **3D Model Viewer** — Loads and renders GLB models with PBR lighting
+- **Scroll Animations** — Camera orbits and model transforms driven by scroll position
+- **Actuator Cycle** — Plays embedded GLTF animations on demand
+- **Cutaway Mode** — Movable clipping plane to slice the model along X, Y, or Z axes
+- **Particle Field** — Animated background particles with parallax
+- **Responsive** — Adapts to any viewport with proper resize handling
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- [Next.js](https://nextjs.org/) 16 (App Router, Turbopack)
+- [Three.js](https://threejs.org/) 0.182
+- [GSAP](https://gsap.com/) 3.14 (ScrollTrigger)
+- [Tailwind CSS](https://tailwindcss.com/) 4
+- TypeScript 5
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/
+│   └── page.tsx          # Page component, wires overlay to scene
+├── components/
+│   ├── Scene.tsx         # Three.js renderer, model, clipping plane
+│   └── HeroOverlay.tsx   # HTML overlay, buttons, GSAP animations
+public/
+└── model.glb             # 3D model asset
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run build
+npm start
+```
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Or deploy to [Vercel](https://vercel.com) for zero-config hosting.
