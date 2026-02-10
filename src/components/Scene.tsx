@@ -8,6 +8,20 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
+export interface HotspotConfig {
+  id: string;
+  meshName: string;
+  label: string;
+  description: string;
+}
+
+export interface HotspotScreenPosition {
+  id: string;
+  x: number;
+  y: number;
+  visible: boolean;
+}
+
 export interface SceneHandle {
   playActuatorCycle: () => void;
   setCutawayEnabled: (enabled: boolean) => void;
@@ -17,10 +31,20 @@ export interface SceneHandle {
   setExplodeIntensity: (value: number) => void;
 }
 
-const Scene = forwardRef<SceneHandle>(function Scene(_, ref) {
+interface SceneProps {
+  hotspots?: HotspotConfig[];
+  onHotspotPositions?: (positions: HotspotScreenPosition[]) => void;
+}
+
+const Scene = forwardRef<SceneHandle, SceneProps>(function Scene({ hotspots, onHotspotPositions }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const actuatorActionRef = useRef<THREE.AnimationAction | null>(null);
+
+  // Hotspot anchors — resolved on model load, just store mesh reference
+  const hotspotAnchorsRef = useRef<{ id: string; mesh: THREE.Object3D }[]>([]);
+  const onHotspotPositionsRef = useRef(onHotspotPositions);
+  onHotspotPositionsRef.current = onHotspotPositions;
 
   // Cutaway clipping state — plane starts at 99999 (nothing clipped)
   const clippingPlaneRef = useRef(new THREE.Plane(new THREE.Vector3(-1, 0, 0), 99999));
@@ -263,6 +287,21 @@ const Scene = forwardRef<SceneHandle>(function Scene(_, ref) {
           }
         });
 
+        // Resolve hotspot anchors — just store mesh references
+        if (hotspots && hotspots.length > 0) {
+          const anchors: typeof hotspotAnchorsRef.current = [];
+          hotspots.forEach((hs) => {
+            let targetMesh: THREE.Object3D | null = null;
+            model!.traverse((child) => {
+              if (child.name === hs.meshName) targetMesh = child;
+            });
+            if (targetMesh) {
+              anchors.push({ id: hs.id, mesh: targetMesh });
+            }
+          });
+          hotspotAnchorsRef.current = anchors;
+        }
+
         // Start invisible for entrance animation
         model.scale.set(0, 0, 0);
         scene.add(model);
@@ -436,6 +475,27 @@ const Scene = forwardRef<SceneHandle>(function Scene(_, ref) {
       // Mouse-driven camera offset
       camera.position.x += (mouse.x * 1.0 - camera.position.x) * 0.01;
       camera.lookAt(0, 0, 0);
+
+      // Project hotspot anchors to screen space
+      const anchors = hotspotAnchorsRef.current;
+      if (anchors.length > 0 && onHotspotPositionsRef.current) {
+        const positions: HotspotScreenPosition[] = anchors.map((anchor) => {
+          const worldPos = anchor.mesh.getWorldPosition(new THREE.Vector3());
+          const projected = worldPos.clone().project(camera);
+          const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
+          let visible = projected.z < 1; // not behind camera
+
+          // Hide if cutaway clips this point
+          if (visible && cutawayEnabledRef.current) {
+            const plane = clippingPlaneRef.current;
+            visible = plane.distanceToPoint(worldPos) >= 0;
+          }
+
+          return { id: anchor.id, x, y, visible };
+        });
+        onHotspotPositionsRef.current(positions);
+      }
 
       renderer.render(scene, camera);
     };

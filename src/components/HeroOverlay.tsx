@@ -6,6 +6,8 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
+import type { HotspotConfig, HotspotScreenPosition } from "./Scene";
+
 interface HeroOverlayProps {
   onActuatorCycle?: () => void;
   onCutawayToggle?: (enabled: boolean) => void;
@@ -13,6 +15,8 @@ interface HeroOverlayProps {
   onCutawayAxis?: (axis: "x" | "y" | "z") => void;
   onExplodeToggle?: (enabled: boolean) => void;
   onExplodeIntensity?: (value: number) => void;
+  hotspotConfigs?: HotspotConfig[];
+  hotspotPositions?: HotspotScreenPosition[];
 }
 
 export default function HeroOverlay({
@@ -22,6 +26,8 @@ export default function HeroOverlay({
   onCutawayAxis,
   onExplodeToggle,
   onExplodeIntensity,
+  hotspotConfigs = [],
+  hotspotPositions = [],
 }: HeroOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [cutawayActive, setCutawayActive] = useState(false);
@@ -29,6 +35,8 @@ export default function HeroOverlay({
   const cutawayControlsRef = useRef<HTMLDivElement>(null);
   const [explodeActive, setExplodeActive] = useState(false);
   const explodeControlsRef = useRef<HTMLDivElement>(null);
+  const [hotspotsVisible, setHotspotsVisible] = useState(true);
+  const [activeHotspot, setActiveHotspot] = useState<string | null>(null);
 
   // Animate cutaway controls in/out
   useEffect(() => {
@@ -354,6 +362,23 @@ export default function HeroOverlay({
               </svg>
               <span>Explode</span>
             </button>
+
+            <button
+              onClick={() => {
+                setHotspotsVisible((v) => !v);
+                if (activeHotspot) setActiveHotspot(null);
+              }}
+              className={`group relative inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-full px-8 font-medium text-white transition-all ${
+                hotspotsVisible
+                  ? "bg-gradient-to-r from-cyan-500 to-teal-500 shadow-[0_0_30px_rgba(6,182,212,0.4)]"
+                  : "bg-gradient-to-r from-cyan-500 to-teal-500 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
+              }`}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Hotspots</span>
+            </button>
           </div>
 
           {/* Cutaway controls — slider + axis buttons */}
@@ -650,6 +675,59 @@ export default function HeroOverlay({
 
       {/* Footer spacer */}
       <div className="h-20" />
+
+      {/* ==================== HOTSPOT MARKERS ==================== */}
+      {hotspotsVisible && hotspotPositions.length > 0 && (
+        <div className="fixed inset-0 z-50 pointer-events-none">
+          {hotspotPositions.map((pos) => {
+            if (!pos.visible) return null;
+            const config = hotspotConfigs.find((c) => c.id === pos.id);
+            if (!config) return null;
+            const isOpen = activeHotspot === pos.id;
+            // Flip panel to the left if marker is in the right half of the screen
+            const flipLeft = pos.x > window.innerWidth * 0.6;
+
+            return (
+              <div
+                key={pos.id}
+                className="absolute"
+                style={{
+                  left: pos.x,
+                  top: pos.y,
+                  transform: "translate(-50%, -50%)",
+                }}
+              >
+                {/* Pulsing marker */}
+                <button
+                  className="pointer-events-auto relative flex h-8 w-8 items-center justify-center"
+                  onClick={() => setActiveHotspot(isOpen ? null : pos.id)}
+                >
+                  {/* Outer ping ring */}
+                  <span className="absolute h-6 w-6 rounded-full bg-cyan-400/40 animate-ping" />
+                  {/* Inner solid dot */}
+                  <span className="relative h-3 w-3 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+                </button>
+
+                {/* Info panel */}
+                {isOpen && (
+                  <div
+                    className={`pointer-events-auto absolute top-10 w-64 rounded-xl border border-white/10 bg-black/60 p-4 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] ${
+                      flipLeft ? "right-0" : "left-0"
+                    }`}
+                  >
+                    <h4 className="mb-1 text-sm font-semibold text-cyan-300">
+                      {config.label}
+                    </h4>
+                    <p className="text-xs leading-relaxed text-zinc-400">
+                      {config.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
